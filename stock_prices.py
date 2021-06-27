@@ -5,12 +5,12 @@ from keras.models import Sequential
 from keras.layers import LSTM, Dense, Dropout
 from matplotlib import pyplot as plt
 
-
 TIME_STEPS = 60
 TRAIN_SET_PERCENT = 80
 NEURON_UNITS = 50
 EPOCHS = 1
 BATCH_SIZE = 30
+FILE_NAME = 'ing.csv'
 
 
 def get_train_set_size(dataframe, train_set_percent):
@@ -55,7 +55,6 @@ if __name__ == "__main__":
     # loading data
     df = pd.read_csv('ing.csv', ',')
     print(df.head(5))
-    print(len(df))
 
     # split into training and test set
     train_set_size = get_train_set_size(df, TRAIN_SET_PERCENT)
@@ -66,21 +65,20 @@ if __name__ == "__main__":
     # scalling data
     sc = MinMaxScaler(feature_range=(0, 1))
     training_set_scalled = sc.fit_transform(training_dataset.values)
+    test_set_scalled = sc.fit_transform(test_dataset.values)
 
     # creating and training model
-    X_train, Y_train = create_time_steps_data_group(TIME_STEPS, train_set_size, training_set_scalled)
+    X_train, Y_train = create_time_steps_data_group(TIME_STEPS, training_set_scalled)
     model = create_model(X_train, NEURON_UNITS, output_neuron_units=1)
     train_model(model, X_train, Y_train, EPOCHS, BATCH_SIZE)
 
     # test model
-    X_test, Y_test = create_time_steps_data_group(TIME_STEPS, test_dataset)
+    X_test, Y_test = create_time_steps_data_group(TIME_STEPS, test_set_scalled)
     loss_value = model.evaluate(X_test, Y_test)
-    print(f'Results: {loss_value}')
-
+    print(f'loss_value: {loss_value}')
 
     # prediction
     predicted_stock_price = model.predict(X_test)
     predicted_stock_price = sc.inverse_transform(predicted_stock_price)
 
     # plot
-

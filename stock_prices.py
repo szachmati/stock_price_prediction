@@ -5,10 +5,10 @@ from keras.models import Sequential
 from keras.layers import LSTM, Dense, Dropout
 from matplotlib import pyplot as plt
 
-TIME_STEPS = 60
+TIME_STEPS = 183
 TRAIN_SET_PERCENT = 80
 NEURON_UNITS = 50
-EPOCHS = 1
+EPOCHS = 20
 BATCH_SIZE = 30
 FILE_NAME = 'ing.csv'
 
@@ -50,11 +50,15 @@ def train_model(model, X_train, Y_train, epochs, batch_size):
     model.fit(X_train, Y_train, epochs=epochs, batch_size=batch_size)
 
 
+def load_data(file_path, separator):
+    return pd.read_csv(file_path, separator).iloc[::-1]
+
+
 if __name__ == "__main__":
 
     # loading data
-    df = pd.read_csv('ing.csv', ',')
-    print(df.head(5))
+    df = load_data(FILE_NAME, ',')
+    print(f'dataframe: {df}')
 
     # split into training and test set
     train_set_size = get_train_set_size(df, TRAIN_SET_PERCENT)
@@ -80,5 +84,5 @@ if __name__ == "__main__":
     # prediction
     predicted_stock_price = model.predict(X_test)
     predicted_stock_price = sc.inverse_transform(predicted_stock_price)
-
+    print(f'predicted_stock_price: {predicted_stock_price}')
     # plot

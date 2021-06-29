@@ -1,16 +1,18 @@
 import numpy as np
-import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
-from keras.models import Sequential
+from keras.models import Sequential, load_model, save_model
 from keras.layers import LSTM, Dense, Dropout
 from matplotlib import pyplot as plt
+from utils import transform_data_from_csv, convert_to_one_dim_array, file_exists
 
 TIME_STEPS = 183
 TRAIN_SET_PERCENT = 80
 NEURON_UNITS = 50
-EPOCHS = 20
+EPOCHS = 1
 BATCH_SIZE = 30
 FILE_NAME = 'ing.csv'
+OUTPUTS = 1
+MODEL_FILEPATH = 'lstm_stock_prediction_ing.model'
 
 
 def get_train_set_size(dataframe, train_set_percent):
@@ -29,6 +31,15 @@ def create_time_steps_data_group(time_steps, data_set):
     return X_tab, Y_tab
 
 
+def get_model(X_train, neuron_units, outputs, filepath):
+    if not file_exists(MODEL_FILEPATH):
+        model = create_model(X_train, neuron_units, output_neuron_units=outputs)
+        model.save(MODEL_FILEPATH)
+        return model
+    else:
+        return load_model(filepath)
+
+
 def create_model(X_train, neuron_units, output_neuron_units):
     # building model
     model = Sequential()
@@ -40,8 +51,9 @@ def create_model(X_train, neuron_units, output_neuron_units):
     model.add(Dropout(0.2))
     model.add(LSTM(units=neuron_units))
     model.add(Dropout(0.2))
-    model.add(Dense(units=output_neuron_units)) # when output_neuron_units is 1 then there will be predicted close price for only one day, 2 for 2 days and so on...
-
+    # when output_neuron_units is 1 then there will be predicted close price for only one day, 2 for 2 days and so on...
+    # but it returns 10 outputs so propably we need to take average result
+    model.add(Dense(units=output_neuron_units))
     return model
 
 
@@ -50,20 +62,17 @@ def train_model(model, X_train, Y_train, epochs, batch_size):
     model.fit(X_train, Y_train, epochs=epochs, batch_size=batch_size)
 
 
-def load_data(file_path, separator):
-    return pd.read_csv(file_path, separator).iloc[::-1]
-
-
 if __name__ == "__main__":
 
-    # loading data
-    df = load_data(FILE_NAME, ',')
+    # preparing data for usage - remove null etc.
+    df = transform_data_from_csv(FILE_NAME, ',', ['Data', 'Zamknięcie'])
     print(f'dataframe: {df}')
 
     # split into training and test set
     train_set_size = get_train_set_size(df, TRAIN_SET_PERCENT)
-    training_dataset = df.iloc[:train_set_size, 2:3]
-    test_dataset = df.iloc[train_set_size:, 2:3]
+    training_dataset = df.iloc[:train_set_size, 1:2]
+    test_dataset = df.iloc[train_set_size:, 1:2]
+    print(f'training_dataset: {training_dataset}')
     print(f'test_dataset: {test_dataset}')
 
     # scalling data
@@ -73,16 +82,32 @@ if __name__ == "__main__":
 
     # creating and training model
     X_train, Y_train = create_time_steps_data_group(TIME_STEPS, training_set_scalled)
-    model = create_model(X_train, NEURON_UNITS, output_neuron_units=1)
+    # model = get_model(X_train, NEURON_UNITS, OUTPUTS, MODEL_FILEPATH)
+    model = create_model(X_train, NEURON_UNITS, output_neuron_units=OUTPUTS)
     train_model(model, X_train, Y_train, EPOCHS, BATCH_SIZE)
 
-    # test model
+    # test model and prediction
     X_test, Y_test = create_time_steps_data_group(TIME_STEPS, test_set_scalled)
-    loss_value = model.evaluate(X_test, Y_test)
-    print(f'loss_value: {loss_value}')
-
-    # prediction
     predicted_stock_price = model.predict(X_test)
     predicted_stock_price = sc.inverse_transform(predicted_stock_price)
-    print(f'predicted_stock_price: {predicted_stock_price}')
-    # plot
+    print(f'predicted values: {predicted_stock_price}')
+    print(f'train loss: {model.evaluate(X_train, Y_train)}')
+    print(f'test loss: {model.evaluate(X_test, Y_test)}')
+    print(f'model summary: {model.summary()}')
+
+    # transform prediction output into one dim array, the same with test data
+    predicted_data = convert_to_one_dim_array(predicted_stock_price)
+    test_data = convert_to_one_dim_array(test_dataset.values)
+
+    # plot for 1 outputs
+    print(f'test_dataset count: {test_dataset.shape[0]}')
+    predict_range = range(TIME_STEPS, TIME_STEPS + len(predicted_data))
+    print(f'predict range: {predict_range}')
+    plt.plot(test_dataset.values, color='blue', label='Real values')
+    plt.plot(predict_range, predicted_stock_price, color='red', label='Prediction')
+    plt.xlabel('Time in days')
+    plt.ylabel('Predicted close price')
+    plt.legend()
+    plt.show()
+
+    #

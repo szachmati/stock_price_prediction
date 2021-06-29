@@ -69,6 +69,36 @@ def get_plot_title(epochs, time_steps):
     '''
 
 
+def prediction_test(model, test_set_scalled, scaller, test_dataset, *train_tuple):
+    # test model and prediction
+    X_train = train_tuple[0][0]
+    Y_train = train_tuple[0][1]
+    X_test, Y_test = create_time_steps_data_group(TIME_STEPS, test_set_scalled)
+    predicted_stock_price = model.predict(X_test)
+    predicted_stock_price = scaller.inverse_transform(predicted_stock_price)
+    print(f'predicted values: {predicted_stock_price}')
+    print(f'train loss: {model.evaluate(X_train, Y_train)}')
+    print(f'test loss: {model.evaluate(X_test, Y_test)}')
+    print(f'model summary: {model.summary()}')
+
+    # transform prediction output into one dim array, the same with test data
+    predicted_data = convert_to_one_dim_array(predicted_stock_price)
+    test_data = convert_to_one_dim_array(test_dataset.values)
+    print(f'test_dataset count: {test_data.shape[0]}')
+    print(f'predicted values: {predicted_data.shape[0]}')
+
+    # plot for 1 output
+    predict_range = range(TIME_STEPS, TIME_STEPS + len(predicted_data))
+    print(f'predict range: {predict_range}')
+    plt.plot(test_data, color='blue', label='Real values')
+    plt.plot(predict_range, predicted_stock_price, color='red', label='Prediction')
+    plt.xlabel('Time in days')
+    plt.ylabel('Predicted close price')
+    plt.legend()
+    plt.title(get_plot_title(EPOCHS, TIME_STEPS))
+    plt.show()
+
+
 if __name__ == "__main__":
 
     # preparing data for usage - remove null etc.
@@ -93,30 +123,6 @@ if __name__ == "__main__":
     model = create_model(X_train, NEURON_UNITS, output_neuron_units=OUTPUTS)
     train_model(model, X_train, Y_train, EPOCHS, BATCH_SIZE)
 
-    # test model and prediction
-    X_test, Y_test = create_time_steps_data_group(TIME_STEPS, test_set_scalled)
-    predicted_stock_price = model.predict(X_test)
-    predicted_stock_price = sc.inverse_transform(predicted_stock_price)
-    print(f'predicted values: {predicted_stock_price}')
-    print(f'train loss: {model.evaluate(X_train, Y_train)}')
-    print(f'test loss: {model.evaluate(X_test, Y_test)}')
-    print(f'model summary: {model.summary()}')
-
-    # transform prediction output into one dim array, the same with test data
-    predicted_data = convert_to_one_dim_array(predicted_stock_price)
-    test_data = convert_to_one_dim_array(test_dataset.values)
-    print(f'test_dataset count: {test_data.shape[0]}')
-    print(f'predicted values: {predicted_data.shape[0]}')
-
-    # plot for 1 output
-    predict_range = range(TIME_STEPS, TIME_STEPS + len(predicted_data))
-    print(f'predict range: {predict_range}')
-    plt.plot(test_data, color='blue', label='Real values')
-    plt.plot(predict_range, predicted_stock_price, color='red', label='Prediction')
-    plt.xlabel('Time in days')
-    plt.ylabel('Predicted close price')
-    plt.legend()
-    plt.title(get_plot_title(EPOCHS, TIME_STEPS), pad=10)
-    plt.show()
+    prediction_test(model, test_set_scalled, sc, test_dataset, (X_train, Y_train))
 
     # to be continued ...

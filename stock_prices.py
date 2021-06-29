@@ -1,6 +1,6 @@
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
-from keras.models import Sequential, load_model, save_model
+from keras.models import Sequential, load_model
 from keras.layers import LSTM, Dense, Dropout
 from matplotlib import pyplot as plt
 from utils import transform_data_from_csv, convert_to_one_dim_array, file_exists
@@ -32,9 +32,9 @@ def create_time_steps_data_group(time_steps, data_set):
 
 
 def get_model(X_train, neuron_units, outputs, filepath):
-    if not file_exists(MODEL_FILEPATH):
+    if not file_exists(filepath):
         model = create_model(X_train, neuron_units, output_neuron_units=outputs)
-        model.save(MODEL_FILEPATH)
+        model.save(filepath)
         return model
     else:
         return load_model(filepath)
@@ -60,6 +60,13 @@ def create_model(X_train, neuron_units, output_neuron_units):
 def train_model(model, X_train, Y_train, epochs, batch_size):
     model.compile(optimizer='adam', loss='mean_squared_error')
     model.fit(X_train, Y_train, epochs=epochs, batch_size=batch_size)
+
+
+def get_plot_title(epochs, time_steps):
+    return f'''
+        ING stock prediction for epochs = {epochs}
+        and time_steps = {time_steps}
+    '''
 
 
 if __name__ == "__main__":
@@ -98,16 +105,18 @@ if __name__ == "__main__":
     # transform prediction output into one dim array, the same with test data
     predicted_data = convert_to_one_dim_array(predicted_stock_price)
     test_data = convert_to_one_dim_array(test_dataset.values)
+    print(f'test_dataset count: {test_data.shape[0]}')
+    print(f'predicted values: {predicted_data.shape[0]}')
 
-    # plot for 1 outputs
-    print(f'test_dataset count: {test_dataset.shape[0]}')
+    # plot for 1 output
     predict_range = range(TIME_STEPS, TIME_STEPS + len(predicted_data))
     print(f'predict range: {predict_range}')
-    plt.plot(test_dataset.values, color='blue', label='Real values')
+    plt.plot(test_data, color='blue', label='Real values')
     plt.plot(predict_range, predicted_stock_price, color='red', label='Prediction')
     plt.xlabel('Time in days')
     plt.ylabel('Predicted close price')
     plt.legend()
+    plt.title(get_plot_title(EPOCHS, TIME_STEPS), pad=10)
     plt.show()
 
-    #
+    # to be continued ...

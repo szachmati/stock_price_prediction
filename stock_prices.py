@@ -1,18 +1,23 @@
 import numpy as np
+import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from keras.models import Sequential, load_model
 from keras.layers import LSTM, Dense, Dropout
 from matplotlib import pyplot as plt
 from utils import transform_data_from_csv, convert_to_one_dim_array, file_exists
 
+FILE_NAME = 'ing.csv'
+MODEL_FILEPATH = 'lstm_stock_prediction_ing.model'
+CLOSE = 'Zamknięcie'
+DATE = 'Data'
+# Params which can be changed
 TIME_STEPS = 183
 TRAIN_SET_PERCENT = 80
 NEURON_UNITS = 50
 EPOCHS = 1
 BATCH_SIZE = 30
-FILE_NAME = 'ing.csv'
 OUTPUTS = 1
-MODEL_FILEPATH = 'lstm_stock_prediction_ing.model'
+PREDICTION_DAYS = 10
 
 
 def get_train_set_size(dataframe, train_set_percent):
@@ -62,10 +67,9 @@ def train_model(model, X_train, Y_train, epochs, batch_size):
     model.fit(X_train, Y_train, epochs=epochs, batch_size=batch_size)
 
 
-def get_plot_title(epochs, time_steps):
+def get_plot_title(epochs, prediction_days):
     return f'''
-        ING stock prediction for epochs = {epochs}
-        and time_steps = {time_steps}
+        ING stock prediction for {prediction_days} later with {epochs} epochs
     '''
 
 
@@ -99,10 +103,19 @@ def prediction_test(model, test_set_scalled, scaller, test_dataset, *train_tuple
     plt.show()
 
 
+def append_predicted_value(X_total, predicted):
+    temp_input = list(X_total)
+    temp_input = temp_input[-1].tolist()
+    temp_input = temp_input[1:]
+    temp_input.append([predicted])
+    X_total = X_total[1:]
+    return np.insert(X_total, len(X_total), temp_input, axis=0)
+
+
 if __name__ == "__main__":
 
     # preparing data for usage - remove null etc.
-    df = transform_data_from_csv(FILE_NAME, ',', ['Data', 'Zamknięcie'])
+    df = transform_data_from_csv(FILE_NAME, ',', [DATE, CLOSE])
     print(f'dataframe: {df}')
 
     # split into training and test set
@@ -123,6 +136,38 @@ if __name__ == "__main__":
     model = create_model(X_train, NEURON_UNITS, output_neuron_units=OUTPUTS)
     train_model(model, X_train, Y_train, EPOCHS, BATCH_SIZE)
 
-    prediction_test(model, test_set_scalled, sc, test_dataset, (X_train, Y_train))
+    # uncomment if show prediction test
+    # prediction_test(model, test_set_scalled, sc, test_dataset, (X_train, Y_train))
 
-    # to be continued ...
+
+    # prediction of stock price for ten days one by one, whole dataset included
+    print('************** TEN DAYS PREDICTION ***************')
+
+    total_dataset = pd.concat((training_dataset, test_dataset), axis=0)
+    total_dataset_scalled = sc.fit_transform(total_dataset)
+    print(f'total dataset: {total_dataset}')
+
+    X_total, Y_total = create_time_steps_data_group(TIME_STEPS, total_dataset_scalled)
+
+    predicted_values = []
+    for i in range(0, PREDICTION_DAYS):
+        predictions = model.predict(X_total)
+        last_predicted_value = convert_to_one_dim_array(predictions)[-1]
+        predicted_values.append(last_predicted_value)
+        # every day we predict with one more value, so we need to add it to X_total
+        X_total = append_predicted_value(X_total, last_predicted_value)
+
+    predicted_values = sc.inverse_transform([predicted_values])
+    predicted_values = convert_to_one_dim_array(predicted_values)
+    predicted_values = np.array(predicted_values).transpose()
+    print('************ AFTER PREDICTION LOOP **************')
+    print(f'predicted_values: {predicted_values}')
+
+    prediction_range = range(len(total_dataset), len(total_dataset) + PREDICTION_DAYS)
+    plt.plot(prediction_range, predicted_values, color='red', label='Prediction values')
+    plt.plot(total_dataset.values, color='blue', label='Real values')
+    plt.xlabel('Time in days')
+    plt.ylabel('Predicted close price of ING stock')
+    plt.title(get_plot_title(EPOCHS, PREDICTION_DAYS))
+    plt.legend()
+    plt.show()

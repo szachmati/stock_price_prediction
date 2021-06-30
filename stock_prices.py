@@ -14,10 +14,10 @@ DATE = 'Data'
 TIME_STEPS = 183
 TRAIN_SET_PERCENT = 80
 NEURON_UNITS = 50
-EPOCHS = 1
+EPOCHS = 20
 BATCH_SIZE = 30
 OUTPUTS = 1
-PREDICTION_DAYS = 10
+PREDICTION_DAYS = 20
 
 
 def get_train_set_size(dataframe, train_set_percent):

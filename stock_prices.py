@@ -17,10 +17,10 @@ Y_LABEL = 'Close price of stock'
 TIME_STEPS = 183
 TRAIN_SET_PERCENT = 80
 NEURON_UNITS = 30
-EPOCHS = 10
+EPOCHS = 5
 BATCH_SIZE = 30
 OUTPUTS = 1
-PREDICTION_DAYS = 10
+PREDICTION_DAYS = 50
 ELAPSED_TIME = 0
 
 
@@ -184,6 +184,7 @@ if __name__ == "__main__":
     prediction_range = range(len(total_dataset), len(total_dataset) + PREDICTION_DAYS)
     plt.plot(prediction_range, predicted_values, color='red', label='Prediction values')
     plt.plot(total_dataset.values, color='blue', label='Real values')
+    plt.xlim(left=1500)
     plt.xlabel(X_LABEL)
     plt.ylabel(Y_LABEL)
     plt.title(get_plot_title(EPOCHS, PREDICTION_DAYS, NEURON_UNITS, ELAPSED_TIME))

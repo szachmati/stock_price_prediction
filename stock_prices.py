@@ -5,19 +5,23 @@ from keras.models import Sequential, load_model
 from keras.layers import LSTM, Dense, Dropout
 from matplotlib import pyplot as plt
 from utils import transform_data_from_csv, convert_to_one_dim_array, file_exists
+from time import time
 
 FILE_NAME = 'ing.csv'
 MODEL_FILEPATH = 'lstm_stock_prediction_ing.model'
 CLOSE = 'Zamknięcie'
 DATE = 'Data'
+X_LABEL = 'Time in days'
+Y_LABEL = 'Close price of stock'
 # Params which can be changed
 TIME_STEPS = 183
 TRAIN_SET_PERCENT = 80
-NEURON_UNITS = 50
-EPOCHS = 20
+NEURON_UNITS = 30
+EPOCHS = 10
 BATCH_SIZE = 30
 OUTPUTS = 1
-PREDICTION_DAYS = 20
+PREDICTION_DAYS = 10
+ELAPSED_TIME = 0
 
 
 def get_train_set_size(dataframe, train_set_percent):
@@ -67,23 +71,31 @@ def train_model(model, X_train, Y_train, epochs, batch_size):
     model.fit(X_train, Y_train, epochs=epochs, batch_size=batch_size)
 
 
-def get_plot_title(epochs, prediction_days):
+def get_plot_title(epochs, prediction_days, neuron_units, elapsed_time):
     return f'''
-        ING stock prediction for {prediction_days} later with {epochs} epochs
+        ING stock prediction for {prediction_days} days later with {epochs} epochs
+        with {neuron_units} neurons with elapsed time {round(elapsed_time, 2)} seconds
     '''
 
+def get_test_plot_title(epochs, time_steps, neuron_units, elapsed_time):
+    return f'''
+           ING stock test prediction within {time_steps} time steps with {epochs} epochs
+           with {neuron_units} neurons with elapsed time {round(elapsed_time, 2)} seconds
+       '''
 
-def prediction_test(model, test_set_scalled, scaller, test_dataset, *train_tuple):
+def prediction_test(model, test_set_scalled, scaller, test_dataset, *train_tuple, start_time):
     # test model and prediction
     X_train = train_tuple[0][0]
     Y_train = train_tuple[0][1]
     X_test, Y_test = create_time_steps_data_group(TIME_STEPS, test_set_scalled)
     predicted_stock_price = model.predict(X_test)
     predicted_stock_price = scaller.inverse_transform(predicted_stock_price)
+    ELAPSED_TIME = time() - start_time
     print(f'predicted values: {predicted_stock_price}')
     print(f'train loss: {model.evaluate(X_train, Y_train)}')
     print(f'test loss: {model.evaluate(X_test, Y_test)}')
     print(f'model summary: {model.summary()}')
+    print(f'model processing time: {ELAPSED_TIME}')
 
     # transform prediction output into one dim array, the same with test data
     predicted_data = convert_to_one_dim_array(predicted_stock_price)
@@ -96,10 +108,10 @@ def prediction_test(model, test_set_scalled, scaller, test_dataset, *train_tuple
     print(f'predict range: {predict_range}')
     plt.plot(test_data, color='blue', label='Real values')
     plt.plot(predict_range, predicted_stock_price, color='red', label='Prediction')
-    plt.xlabel('Time in days')
-    plt.ylabel('Predicted close price')
+    plt.xlabel(X_LABEL)
+    plt.ylabel(Y_LABEL)
     plt.legend()
-    plt.title(get_plot_title(EPOCHS, TIME_STEPS))
+    plt.title(get_test_plot_title(EPOCHS, TIME_STEPS, NEURON_UNITS, ELAPSED_TIME))
     plt.show()
 
 
@@ -132,16 +144,18 @@ if __name__ == "__main__":
 
     # creating and training model
     X_train, Y_train = create_time_steps_data_group(TIME_STEPS, training_set_scalled)
+    # model can be kept in a file
     # model = get_model(X_train, NEURON_UNITS, OUTPUTS, MODEL_FILEPATH)
     model = create_model(X_train, NEURON_UNITS, output_neuron_units=OUTPUTS)
+
+    start_time = time()
     train_model(model, X_train, Y_train, EPOCHS, BATCH_SIZE)
 
     # uncomment if show prediction test
-    # prediction_test(model, test_set_scalled, sc, test_dataset, (X_train, Y_train))
+    # prediction_test(model, test_set_scalled, sc, test_dataset, (X_train, Y_train), start_time=start_time)
 
 
-    # prediction of stock price for ten days one by one, whole dataset included
-    print('************** TEN DAYS PREDICTION ***************')
+    print(f'**************      {PREDICTION_DAYS} DAYS PREDICTION       ****************')
 
     total_dataset = pd.concat((training_dataset, test_dataset), axis=0)
     total_dataset_scalled = sc.fit_transform(total_dataset)
@@ -157,17 +171,21 @@ if __name__ == "__main__":
         # every day we predict with one more value, so we need to add it to X_total
         X_total = append_predicted_value(X_total, last_predicted_value)
 
+    ELAPSED_TIME = time() - start_time
     predicted_values = sc.inverse_transform([predicted_values])
     predicted_values = convert_to_one_dim_array(predicted_values)
     predicted_values = np.array(predicted_values).transpose()
     print('************ AFTER PREDICTION LOOP **************')
     print(f'predicted_values: {predicted_values}')
+    print(f'train data loss: {model.evaluate(X_train, Y_train)}')
+    print(f'real data loss: {model.evaluate(X_total, Y_total)}')
+    print(f'model summary: {model.summary()}')
 
     prediction_range = range(len(total_dataset), len(total_dataset) + PREDICTION_DAYS)
     plt.plot(prediction_range, predicted_values, color='red', label='Prediction values')
     plt.plot(total_dataset.values, color='blue', label='Real values')
-    plt.xlabel('Time in days')
-    plt.ylabel('Predicted close price of ING stock')
-    plt.title(get_plot_title(EPOCHS, PREDICTION_DAYS))
+    plt.xlabel(X_LABEL)
+    plt.ylabel(Y_LABEL)
+    plt.title(get_plot_title(EPOCHS, PREDICTION_DAYS, NEURON_UNITS, ELAPSED_TIME))
     plt.legend()
     plt.show()
